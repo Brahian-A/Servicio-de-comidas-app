@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>List of Places</title>
+    <link rel="icon" href="../static/images/icon.png">
+    <link rel="stylesheet" href="../static/css/styles.css">
+</head>
+<body>
+    <header class="header-of-index">
+        <nav class="nav-of-index">
+            <img class="logo" src="../static/images/logo.png" alt="logo of the website">
+            <a class="login-button" href="/login" id="login-link">Log in</a>
+            <button id="logout-link" style="display: none;">log out</button>
+        </nav>
+    </header>
+    <main class="main-index">
+        <h1 class="title-main">Available Places</h1>
+        <section id="filter">
+            <label for="price-filter">Max Price:</label>
+            <select id="price-filter">
+                <option value="10"> $10</option>
+                <option value="50"> $50</option>
+                <option value="100"> $100</option>
+                <option value="all"> all</option>
+                <!-- Options will be populated dynamically -->
+            </select>
+        </section>
+        <section id="places-list">
+            <!-- List of places will be populated dynamically -->
+            <article class="place-card">
+                <h2 class="place-card-title">Beautiful Beach House</h2>
+                <h5 class="place-card-price">price per night: $150</h5>
+                <a class="details-button" href="">View Details</a>
+            </article>
+            <article class="place-card">
+                <h2 class="place-card-title">Title</h2>
+                <h5 class="place-card-price">price per night</h5>
+                <a class="details-button" href="">View Details</a>
+            </article>
+            <article class="place-card">
+                <h2 class="place-card-title">Title</h2>
+                <h5 class="place-card-price">price per night</h5>
+                <a class="details-button" href="">View Details</a>
+            </article>
+        </section>
+    </main>
+    <footer>
+        <h3>©2024 HBnB Evolution. all rights reserved.</h3>
+    </footer>
+    <script src="/static/javascript/scripts.js"></script>
+</body>
+</html>

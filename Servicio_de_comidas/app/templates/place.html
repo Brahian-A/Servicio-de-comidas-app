@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Place Details</title>
+    <link rel="icon" href="../static/images/icon.png">
+    <link rel="stylesheet" href="../static/css/style-places.css">
+</head>
+<body>
+    <header class="header">
+        <nav class="nav">
+            <a href="/"><img class="logo" src="../static/images/logo.png" alt="logo of the website"></a>
+            <a class="login-button" href="/login" id="login-link">Log in</a>
+            <button id="logout-link" style="display: none;">log out</button>
+        </nav>
+    </header>
+    <main>
+        <section id="place-details">
+            <!-- Place details will be populated dynamically -->
+            <div class="details-show" id="details-show">
+
+            </div>
+        </section>
+        <section id="reviews">
+            <!-- Reviews will be populated dynamically -->
+            <h2 class="title-reviews">Reviews:</h2>
+            <div class="ventana-container">
+                <div class="container" id="container">
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                    <div class="reviews-list">
+
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section id="add-review">
+            <h2>Add a Review</h2>
+            <form id="review-form">
+                <label class="text-add-review" for="review-text">Your Review:</label>
+                <textarea rows="3" class="input-add-review" id="review-text" name="review-text" required></textarea>
+                <label class="text-add-review" for="stars_rating">Rating:</label>
+                <select class="input-add-review" name="stars_rating" id="stars_rating">
+                    <option value="1" class="cant_stars"><b>1 star</b></option>
+                    <option value="2" class="cant_stars"><b>2 stars</b></option>
+                    <option value="3" class="cant_stars"><b>3 stars</b></option>
+                    <option value="4" class="cant_stars"><b>4 stars</b></option>
+                    <option value="5" class="cant_stars"><b>5 stars</b></option>
+                </select>
+                <button type="submit">Submit</button>
+            </form>
+        </section>
+    </main>
+    <footer>
+        <h3 class="text-footer">©2024 HBnB Evolution. all rights reserved.</h3>
+    </footer>
+    <script src="../static/javascript/scripts-places.js"></script>
+</body>
+</html>
