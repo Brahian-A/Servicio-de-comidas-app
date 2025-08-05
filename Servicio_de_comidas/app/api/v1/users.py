@@ -14,17 +14,22 @@ def validate_email_format(email):
 
 # ==================== Modelos para Swagger y Validación ====================
 user_model = api.model('User', {
-    'first_name': fields.String(required=True, min_length=1, description='First name of the user'),
-    'last_name': fields.String(required=True, min_length=1, description='Last name of the user'),
-    'email': fields.String(required=True, min_length=1, description='Email of the user'),
-    'password': fields.String(required=True, min_length=6, description='User password')
+    'first_name': fields.String(required=True, min_length=1),
+    'last_name': fields.String(required=True, min_length=1),
+    'email': fields.String(required=True),
+    'password': fields.String(required=True, min_length=6),
+    'phone': fields.String(required=False),
+    'address': fields.String(required=False),
+    'preferences': fields.String(required=False),
 })
 
 user_update_model = api.model('UserUpdate', {
-    'first_name': fields.String(min_length=1, description='First name of the user'),
-    'last_name': fields.String(min_length=1, description='Last name of the user'),
-    'email': fields.String(min_length=1, description='Email of the user'),
-    'password': fields.String(min_length=6, description='User password')
+    'first_name': fields.String(min_length=1),
+    'last_name': fields.String(min_length=1),
+    'phone': fields.String(),
+    'address': fields.String(),
+    'preferences': fields.String(),
+    # ⚠️ NO ponemos email ni password aquí para evitar edición
 })
 
 # ==================== Rutas ====================
@@ -35,30 +40,50 @@ class UserList(Resource):
     @api.response(201, 'User successfully created')
     @api.response(400, 'Email already registered or invalid input')
     def post(self):
-        """Register a new user"""
-        user_data = api.payload
+        data = request.json
         facade = current_app.facade
 
+        required_fields = ['email', 'first_name', 'last_name', 'password']
+        missing = [f for f in required_fields if f not in data]
+        if missing:
+            return {
+                'status': 'error',
+                'message': f'Faltan campos obligatorios: {missing}'
+            }, 400
+
         try:
-            validate_email_format(user_data['email'])
+            validate_email_format(data['email'])
         except ValueError as e:
-            return {'error': str(e)}, 400
-
-        if 'password' not in user_data or len(user_data['password']) < 6:
-            return {'error': 'Password is required and must be at least 6 characters'}, 400
-
-        if facade.get_user_by_email(user_data['email']):
-            return {'error': 'Email already registered'}, 400
-
-        new_user = facade.create_user(user_data)
-        return new_user, 201
+            return {'status': 'error', 'message': str(e)}, 400
+        
+        try:
+            user = facade.create_user(**data)
+            return {
+                'status': 'success',
+                'message': 'Usuario creado correctamente.',
+                'user': {
+                    'id': user.id,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'phone': user.phone,
+                    'address': user.address,
+                    'preferences': user.preferences
+                        }
+            }, 201
+        except ValueError as e:
+            return {
+                'status': 'error',
+                'message': str(e)
+            }, 409
 
     @api.response(200, 'All users retrieved')
     def get(self):
         """Get all users"""
         facade = current_app.facade
-        users = facade.get_users()
-        return users, 200
+        users = facade.get_all_users()
+        return [user.to_dict() for user in users], 200
+
 
 
 @api.route('/<user_id>')
@@ -70,8 +95,9 @@ class UserResource(Resource):
         facade = current_app.facade
         user = facade.get_user(user_id)
         if not user:
-            return {'error': 'User not found'}, 404
-        return user, 200
+            return {'status': 'error', 'message': 'User not found'}, 404
+        return user.to_dict(), 200
+    
 
     @api.expect(user_update_model, validate=True)
     @api.response(200, 'User updated successfully')
@@ -82,33 +108,46 @@ class UserResource(Resource):
         updated_data = api.payload
         facade = current_app.facade
 
-        email = updated_data.get('email')
-        if email:
-            try:
-                validate_email_format(email)
-            except ValueError as e:
-                return {'error': str(e)}, 400
+        # No permitir modificar email
+        if 'email' in updated_data:
+            return {
+                'error': 'No se permite modificar el email del usuario.'
+            }, 400
 
-        password = updated_data.get('password')
-        if password and len(password) < 6:
-            return {'error': 'Password must be at least 6 characters'}, 400
+        # No permitir modificar password
+        if 'password' in updated_data:
+            return {
+                'error': 'No se permite modificar la contraseña desde este endpoint.'
+            }, 400
 
-        updated_user = facade.update_user(user_id, updated_data)
-        if isinstance(updated_user, dict) and 'error' in updated_user:
-            return updated_user, 400
-        if updated_user:
-            return updated_user, 200
-        return {'error': 'User not found'}, 404
+        user = facade.update_user(user_id, updated_data)
 
-    @api.response(200, 'User deleted successfully') 
+        if not user:
+            return {'error': 'User not found'}, 404
+
+        return {
+            'status': 'success',
+            'message': 'Usuario actualizado correctamente.',
+            'user': user.to_dict()
+        }, 200
+
+    
+    @api.response(200, 'User deleted successfully')
     @api.response(404, 'User not found')
     def delete(self, user_id):
         """Delete user"""
         facade = current_app.facade
         result = facade.delete_user(user_id)
-        if 'error' in result:
-            if result['error'] == 'User not found':
-                return result, 404
-            else:
-                return result, 400
-        return result, 200
+
+        if not result:
+            return {
+                'status': 'error',
+                'message': 'Usuario no encontrado.'
+            }, 404
+
+        return {
+            'status': 'success',
+            'message': 'Usuario eliminado correctamente.'
+        }, 200
+
+

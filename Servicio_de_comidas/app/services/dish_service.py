@@ -8,6 +8,10 @@ class DishService:
         self.repo = DishRepository(session)
 
     def create_dish(self, name, type, description, price, available_on_date):
+        existing = self.repo.get_by_name_and_date(name, available_on_date)
+        if existing:
+            raise ValueError(f"El plato '{name}' ya existe para el día {available_on_date}")
+
         return self.repo.create(
             name=name,
             type=type,

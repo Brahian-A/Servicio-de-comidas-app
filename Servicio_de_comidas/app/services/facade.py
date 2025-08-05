@@ -29,6 +29,12 @@ class AppFacade:
     def get_all_users(self):
         return self.user_service.get_all_users()
 
+    def get_user(self, user_id):
+        return self.user_service.get_user(user_id)
+    
+    def update_user(self, user_id, updated_data):
+        return self.user_service.update_user(user_id, updated_data)
+
     # Dishes
     def create_dish(self, **kwargs):
         return self.dish_service.create_dish(**kwargs)

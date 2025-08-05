@@ -5,6 +5,12 @@ class SQLAlchemyRepository:
         self.model = model
         self.session = session
 
+    def create(self, **kwargs):
+        obj = self.model(**kwargs)
+        self.session.add(obj)
+        self.session.commit()
+        return obj
+    
     def get(self, id_):
         return self.session.get(self.model, id_)
 

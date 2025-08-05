@@ -8,3 +8,9 @@ class DishRepository(SQLAlchemyRepository):
 
     def get_available_for_date(self, date):
         return self.session.query(self.model).filter_by(available_on_date=date, is_active=True).all()
+
+    def get_by_name_and_date(self, name, available_on_date):
+        return self.session.query(self.model).filter_by(
+            name=name,
+            available_on_date=available_on_date
+        ).first()
