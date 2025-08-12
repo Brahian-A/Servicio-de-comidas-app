@@ -6,9 +6,10 @@ from datetime import date, timedelta
 
 class SubscriptionPlan(BaseModel, db.Model):
     __tablename__ = 'subscription_plan'
-    __table_args__ = (UniqueConstraint('name', name='uq_subscription_plan_name'),)
+    __table_args__ = (UniqueConstraint('normalized_name', name='uq_plan_norm_name'),)
 
     name = Column(String(100), nullable=False)
+    normalized_name = Column(String(120), nullable=False)
     meals_per_day = Column(Integer, default=1, nullable=False)
     days_per_week = Column(Integer, default=5, nullable=False)
     deliveries_per_week = Column(Integer, default=2, nullable=False)

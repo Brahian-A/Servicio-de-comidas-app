@@ -61,10 +61,10 @@ class Plans(Resource):
     @subscription_ns.marshal_with(plan_model, code=201)
     def post(self):
         svc = current_app.facade.subscription_service
-        data = request.json
-        plan = svc.create_plan(**data)
-        return plan, 201
-
+        try:
+            return svc.create_plan(**request.json), 201
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
 
 @subscription_ns.route('/plans/<string:plan_id>')
 class PlanDetail(Resource):
@@ -81,10 +81,10 @@ class PlanDetail(Resource):
     def put(self, plan_id):
         svc = current_app.facade.subscription_service
         try:
-            plan = svc.update_plan(plan_id, **request.json)
-            return plan
+            return svc.update_plan(plan_id, **request.json)
         except ValueError as e:
-            subscription_ns.abort(404, str(e))
+            # nombre duplicado o not found
+            subscription_ns.abort(400, str(e))
 
     def delete(self, plan_id):
         svc = current_app.facade.subscription_service
@@ -92,22 +92,20 @@ class PlanDetail(Resource):
             svc.delete_plan(plan_id)
             return {'message': 'Plan deleted'}, 200
         except ValueError as e:
-            # Puede ser not found o in use
             subscription_ns.abort(400, str(e))
 
-# --- RUTAS SUSCRIPCIONES ---
-@subscription_ns.route('')
+@subscription_ns.route('/')
 class Subscriptions(Resource):
     @subscription_ns.expect(subscription_create_model, validate=True)
     @subscription_ns.marshal_with(subscription_model, code=201)
     def post(self):
         svc = current_app.facade.subscription_service
         payload = request.json
+        from datetime import datetime as dt
         try:
-            start_date = datetime.strptime(payload['start_date'], '%Y-%m-%d').date()
+            start_date = dt.strptime(payload['start_date'], '%Y-%m-%d').date()
             weeks = int(payload.get('weeks', 4))
-            sub = svc.assign_plan_to_user(payload['user_id'], payload['plan_id'], start_date, weeks)
-            return sub, 201
+            return svc.assign_plan_to_user(payload['user_id'], payload['plan_id'], start_date, weeks), 201
         except ValueError as e:
             subscription_ns.abort(400, str(e))
 
