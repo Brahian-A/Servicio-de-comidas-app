@@ -88,15 +88,16 @@ class SubscriptionService:
         plan = self.get_plan(plan_id)
         if not plan:
             raise ValueError("Plan not found")
-        active_count = (
+        any_sub = (
             self.session.query(UserSubscription)
-            .filter_by(plan_id=plan_id, is_active=True)
-            .count()
+            .filter_by(plan_id=plan_id)
+            .first()
         )
-        if active_count > 0:
-            raise ValueError("Plan is in use by active subscriptions")
+        if any_sub:
+            raise ValueError("Plan is referenced by subscriptions")
         self.session.delete(plan)
         self.session.commit()
+
 
     # --- SUSCRIPCIONES ---
     def assign_plan_to_user(self, user_id: str, plan_id: str, start_date: date, weeks: int = 4) -> UserSubscription:
