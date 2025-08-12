@@ -8,7 +8,7 @@ from app.extensions import bcrypt, jwt, db
 
 from app.api.v1.dishes import api as dishes_ns
 from app.api.v1.orders import api as orders_ns
-from app.api.v1.subscriptions import api as subscriptions_ns
+from app.api.v1.subscriptions import subscription_ns as subscriptions_ns
 from app.api.v1.kitchen import api as kitchen_ns
 from app.api.v1.admin import api as admin_ns
 from app.api.v1.users import api as users_ns

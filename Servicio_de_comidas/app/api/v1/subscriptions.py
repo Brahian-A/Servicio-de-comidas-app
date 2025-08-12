@@ -1,98 +1,177 @@
-# app/api/v1/subscriptions.py
-
-from flask_restx import Namespace, Resource, fields
 from flask import request, current_app
+from flask_restx import Namespace, Resource, fields
 from datetime import datetime
 
-api = Namespace('subscriptions', description='Planes y suscripciones de comida')
+subscription_ns = Namespace('subscriptions', description='User subscriptions & plans')
 
-# ---------------------------
-# Modelos Swagger
-# ---------------------------
-
-subscription_plan_model = api.model('SubscriptionPlan', {
-    'id': fields.String(readonly=True),
+# --- MODELOS (Swagger) ---
+plan_model = subscription_ns.model('SubscriptionPlan', {
+    'id': fields.String(readOnly=True),
     'name': fields.String(required=True),
-    'meals_per_day': fields.Integer(required=True),
-    'days_per_week': fields.Integer(required=True),
-    'deliveries_per_week': fields.Integer(required=True),
-    'price': fields.Float(required=True)
+    'meals_per_day': fields.Integer(required=True, min=1),
+    'days_per_week': fields.Integer(required=True, min=1, max=7),
+    'deliveries_per_week': fields.Integer(required=True, min=1, max=7),
+    'price': fields.Float(required=True),
 })
 
-subscribe_input_model = api.model('UserSubscribe', {
+plan_create_model = subscription_ns.model('SubscriptionPlanCreate', {
+    'name': fields.String(required=True),
+    'meals_per_day': fields.Integer(required=True, min=1),
+    'days_per_week': fields.Integer(required=True, min=1, max=7),
+    'deliveries_per_week': fields.Integer(required=True, min=1, max=7),
+    'price': fields.Float(required=True),
+})
+
+plan_update_model = subscription_ns.model('SubscriptionPlanUpdate', {
+    'name': fields.String,
+    'meals_per_day': fields.Integer(min=1),
+    'days_per_week': fields.Integer(min=1, max=7),
+    'deliveries_per_week': fields.Integer(min=1, max=7),
+    'price': fields.Float,
+})
+
+subscription_model = subscription_ns.model('UserSubscription', {
+    'id': fields.String(readOnly=True),
     'user_id': fields.String(required=True),
     'plan_id': fields.String(required=True),
-    'start_date': fields.String(required=True, description='Formato YYYY-MM-DD')
+    'start_date': fields.String(required=True, description='YYYY-MM-DD'),
+    'end_date': fields.String(required=True),
+    'meals_remaining': fields.Integer(required=True),
+    'next_delivery_dates': fields.List(fields.String),
+    'is_active': fields.Boolean,
+    'is_paused': fields.Boolean,
 })
 
-scheduled_meal_output = api.model('ScheduledMeal', {
-    'id': fields.String,
-    'date': fields.String,
-    'meal_type': fields.String,
-    'dish_id': fields.String
+subscription_create_model = subscription_ns.model('UserSubscriptionCreate', {
+    'user_id': fields.String(required=True),
+    'plan_id': fields.String(required=True),
+    'start_date': fields.String(required=True, description='YYYY-MM-DD'),
+    'weeks': fields.Integer(required=False, description='Duración en semanas (default 4)')
 })
 
-assign_dish_model = api.model('AssignDish', {
-    'scheduled_meal_id': fields.String(required=True),
-    'dish_id': fields.String(required=True)
-})
+# --- RUTAS PLANES ---
+@subscription_ns.route('/plans')
+class Plans(Resource):
+    @subscription_ns.marshal_list_with(plan_model, code=200, envelope='items')
+    def get(self):
+        svc = current_app.facade.subscription_service
+        return svc.list_plans()
 
-
-@api.route('/plans')
-class SubscriptionPlanList(Resource):
-    @api.expect(subscription_plan_model)
-    @api.marshal_with(subscription_plan_model, code=201)
+    @subscription_ns.expect(plan_create_model, validate=True)
+    @subscription_ns.marshal_with(plan_model, code=201)
     def post(self):
-        """Crear un nuevo plan de suscripción"""
+        svc = current_app.facade.subscription_service
         data = request.json
-        facade = current_app.facade
-        plan = facade.create_subscription_plan(**data)
+        plan = svc.create_plan(**data)
         return plan, 201
 
-    @api.marshal_list_with(subscription_plan_model)
-    def get(self):
-        """Listar todos los planes disponibles"""
-        facade = current_app.facade
-        return facade.subscription_service.get_all_plans()
 
+@subscription_ns.route('/plans/<string:plan_id>')
+class PlanDetail(Resource):
+    @subscription_ns.marshal_with(plan_model, code=200)
+    def get(self, plan_id):
+        svc = current_app.facade.subscription_service
+        plan = svc.get_plan(plan_id)
+        if not plan:
+            subscription_ns.abort(404, "Plan not found")
+        return plan
 
-@api.route('/subscribe')
-class UserSubscribe(Resource):
-    @api.expect(subscribe_input_model)
-    def post(self):
-        """Suscribir un usuario a un plan"""
-        data = request.json
+    @subscription_ns.expect(plan_update_model, validate=True)
+    @subscription_ns.marshal_with(plan_model, code=200)
+    def put(self, plan_id):
+        svc = current_app.facade.subscription_service
         try:
-            start_date = datetime.fromisoformat(data['start_date']).date()
-        except ValueError:
-            api.abort(400, 'start_date inválida. Formato: YYYY-MM-DD')
+            plan = svc.update_plan(plan_id, **request.json)
+            return plan
+        except ValueError as e:
+            subscription_ns.abort(404, str(e))
 
-        facade = current_app.facade
-        sub = facade.subscribe_user(
-            user_id=data['user_id'],
-            plan_id=data['plan_id'],
-            start_date=start_date
-        )
-        return {"message": "Suscripción creada", "id": sub.id}, 201
+    def delete(self, plan_id):
+        svc = current_app.facade.subscription_service
+        try:
+            svc.delete_plan(plan_id)
+            return {'message': 'Plan deleted'}, 200
+        except ValueError as e:
+            # Puede ser not found o in use
+            subscription_ns.abort(400, str(e))
 
-
-@api.route('/schedule/<string:user_subscription_id>/week')
-class ScheduledMeals(Resource):
-    @api.marshal_with(scheduled_meal_output, as_list=True)
-    def get(self, user_subscription_id):
-        """Obtener comidas programadas de la semana"""
-        facade = current_app.facade
-        return facade.get_user_meals_for_week(user_subscription_id)
-
-
-@api.route('/schedule/assign')
-class AssignDish(Resource):
-    @api.expect(assign_dish_model)
+# --- RUTAS SUSCRIPCIONES ---
+@subscription_ns.route('')
+class Subscriptions(Resource):
+    @subscription_ns.expect(subscription_create_model, validate=True)
+    @subscription_ns.marshal_with(subscription_model, code=201)
     def post(self):
-        """Asignar un plato a una comida programada"""
-        data = request.json
-        facade = current_app.facade
-        meal = facade.assign_dish_to_meal(data['scheduled_meal_id'], data['dish_id'])
-        if not meal:
-            api.abort(404, "Comida o plato no encontrados")
-        return {"message": "Plato asignado correctamente"}
+        svc = current_app.facade.subscription_service
+        payload = request.json
+        try:
+            start_date = datetime.strptime(payload['start_date'], '%Y-%m-%d').date()
+            weeks = int(payload.get('weeks', 4))
+            sub = svc.assign_plan_to_user(payload['user_id'], payload['plan_id'], start_date, weeks)
+            return sub, 201
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
+
+@subscription_ns.route('/user/<string:user_id>')
+class UserSubscriptions(Resource):
+    @subscription_ns.marshal_list_with(subscription_model, code=200, envelope='items')
+    def get(self, user_id):
+        svc = current_app.facade.subscription_service
+        return svc.list_user_subscriptions(user_id)
+
+@subscription_ns.route('/<string:subscription_id>')
+class SubscriptionDetail(Resource):
+    @subscription_ns.marshal_with(subscription_model, code=200)
+    def get(self, subscription_id):
+        svc = current_app.facade.subscription_service
+        sub = svc.get_subscription(subscription_id)
+        if not sub:
+            subscription_ns.abort(404, "Subscription not found")
+        return sub
+
+@subscription_ns.route('/<string:subscription_id>/pause')
+class SubscriptionPause(Resource):
+    @subscription_ns.marshal_with(subscription_model, code=200)
+    def post(self, subscription_id):
+        svc = current_app.facade.subscription_service
+        try:
+            return svc.pause_subscription(subscription_id)
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
+
+@subscription_ns.route('/<string:subscription_id>/resume')
+class SubscriptionResume(Resource):
+    @subscription_ns.marshal_with(subscription_model, code=200)
+    def post(self, subscription_id):
+        svc = current_app.facade.subscription_service
+        try:
+            return svc.resume_subscription(subscription_id)
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
+
+@subscription_ns.route('/<string:subscription_id>/cancel')
+class SubscriptionCancel(Resource):
+    @subscription_ns.marshal_with(subscription_model, code=200)
+    def post(self, subscription_id):
+        svc = current_app.facade.subscription_service
+        try:
+            return svc.cancel_subscription(subscription_id)
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
+
+@subscription_ns.route('/<string:subscription_id>/consume')
+class SubscriptionConsume(Resource):
+    @subscription_ns.expect(subscription_ns.model('ConsumeBody', {
+        'date': fields.String(required=False, description='YYYY-MM-DD (opcional)'),
+    }), validate=True)
+    @subscription_ns.marshal_with(subscription_model, code=200)
+    def post(self, subscription_id):
+        svc = current_app.facade.subscription_service
+        payload = request.json or {}
+        target_date = None
+        if 'date' in payload and payload['date']:
+            from datetime import datetime
+            target_date = datetime.strptime(payload['date'], '%Y-%m-%d').date()
+        try:
+            return svc.register_meal_consumption(subscription_id, target_date)
+        except ValueError as e:
+            subscription_ns.abort(400, str(e))
